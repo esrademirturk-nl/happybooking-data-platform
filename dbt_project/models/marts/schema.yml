@@ -1,0 +1,114 @@
+# ============================================================
+# schema.yml
+# Goal: Define tests and documentation for Gold models
+# Author: Esra Demirturk Duman
+# ============================================================
+
+# Neden schema.yml?
+# DBT modellerinin testlerini ve dokümantasyonunu tanımlar.
+# dbt test komutu bu dosyayı okuyarak testleri çalıştırır.
+# dbt docs generate komutu lineage graph için kullanır.
+
+version: 2
+
+models:
+  - name: fact_booking
+    description: "Core fact table containing all booking transactions with hotel and customer context"
+    columns:
+      - name: booking_id
+        description: "Unique booking identifier"
+        tests:
+          - unique
+          - not_null
+      - name: hotel_id
+        description: "Foreign key to dim_hotel"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_hotel')
+              field: hotel_id
+      - name: customer_id
+        description: "Foreign key to dim_customer"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_customer')
+              field: customer_id
+      - name: total_price
+        description: "Total booking price before discounts"
+        tests:
+          - not_null
+      - name: net_revenue
+        description: "Total price minus discount amount"
+        tests:
+          - not_null
+      - name: is_cancelled
+        description: "Whether the booking was cancelled"
+        tests:
+          - not_null
+          - accepted_values:
+              values: [true, false]
+
+  - name: dim_hotel
+    description: "Hotel dimension table with review metrics and categorization"
+    columns:
+      - name: hotel_id
+        description: "Unique hotel identifier"
+        tests:
+          - unique
+          - not_null
+      - name: hotel_name
+        tests:
+          - not_null
+      - name: star_rating
+        tests:
+          - not_null
+      - name: hotel_category
+        tests:
+          - accepted_values:
+              values: ['Luxury', 'Mid-Range', 'Budget']
+      - name: hotel_size
+        tests:
+          - accepted_values:
+              values: ['Large', 'Medium', 'Small']
+
+  - name: dim_customer
+    description: "Customer dimension table with booking metrics and segmentation"
+    columns:
+      - name: customer_id
+        description: "Unique customer identifier"
+        tests:
+          - unique
+          - not_null
+      - name: email
+        tests:
+          - unique
+          - not_null
+      - name: loyalty_level
+        tests:
+          - accepted_values:
+              values: ['Platinum', 'Gold', 'Silver', 'Bronze']
+      - name: customer_segment
+        tests:
+          - accepted_values:
+              values: ['High Value', 'Mid Value', 'Low Value']
+      - name: age_group
+        tests:
+          - accepted_values:
+              values: ['Young (18-29)', 'Middle (30-44)', 'Senior (45-59)', 'Elder (60+)']
+
+  - name: kpi_revenue
+    description: "Pre-aggregated monthly revenue KPIs for Power BI dashboard"
+    columns:
+      - name: year
+        tests:
+          - not_null
+      - name: month
+        tests:
+          - not_null
+      - name: gross_revenue
+        tests:
+          - not_null
+      - name: net_revenue
+        tests:
+          - not_null
