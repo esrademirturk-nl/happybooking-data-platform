@@ -17,10 +17,8 @@ solution built on Microsoft Fabric, implementing the Medallion Architecture
 │ booking_dirty   │ Docker Producer   │ Open-Meteo (Weather)  │
 │ .csv (Kaggle)   │ stream_producer   │ ExchangeRate (FX)     │
 └────────┬────────┴────────┬──────────┴──────────┬────────────┘
-```
 │                 │                      │
 ▼                 ▼                      ▼
-```
 ┌─────────────────────────────────────────────────────────────┐
 │              BRONZE LAYER (happybooking_bronze_lh)          │
 │                                                             │
@@ -32,10 +30,9 @@ solution built on Microsoft Fabric, implementing the Medallion Architecture
 │  ✓ Audit columns: ingestion_timestamp, source_file         │
 │  ✓ Delta format — versioned, ACID compliant                │
 └─────────────────────────┬───────────────────────────────────┘
-```
 │
 ▼ PySpark (04_silver_transformations)
-```
+
 ┌─────────────────────────────────────────────────────────────┐
 │              SILVER LAYER (happybooking_silver_lh)          │
 │                                                             │
@@ -47,10 +44,8 @@ solution built on Microsoft Fabric, implementing the Medallion Architecture
 │  ✓ Entities separated (Hotel, Customer, Booking, Review)   │
 │  ✓ Great Expectations quality validation                   │
 └─────────────────────────┬───────────────────────────────────┘
-```
 │
 ▼ DBT (dbt_project/)
-```
 ┌─────────────────────────────────────────────────────────────┐
 │              GOLD LAYER (happybooking_warehouse)            │
 │                                                             │
@@ -65,7 +60,6 @@ solution built on Microsoft Fabric, implementing the Medallion Architecture
 │  ✓ Pre-calculated KPIs and revenue metrics                 │
 │  ✓ DBT tests: unique, not_null, relationships              │
 └─────────────────────────┬───────────────────────────────────┘
-```
 │
 ▼
 ┌─────────────────────────────────────────────────────────────┐
