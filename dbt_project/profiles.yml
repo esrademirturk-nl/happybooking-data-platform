@@ -1,0 +1,39 @@
+# ============================================================
+# profiles.yml
+# Goal: DBT connection profile for Microsoft Fabric Warehouse
+# Author: Esra Demirturk Duman
+# ============================================================
+
+# Neden profiles.yml?
+# DBT'nin hangi veritabanına bağlanacağını tanımlar.
+# Biz Fabric Warehouse kullanıyoruz — dbt-fabric adapter ile.
+
+happybooking:
+  target: dev
+  outputs:
+    dev:
+      type: fabric
+      driver: 'ODBC Driver 18 for SQL Server'
+      server: "{{ env_var('FABRIC_SERVER') }}"
+      port: 1433
+      database: "happybooking_warehouse"
+      schema: "gold"
+      authentication: CLI
+      encrypt: true
+      trust_cert: true
+    
+    prod:
+      type: fabric
+      driver: 'ODBC Driver 18 for SQL Server'
+      server: "{{ env_var('FABRIC_SERVER') }}"
+      port: 1433
+      database: "happybooking_warehouse"
+      schema: "gold"
+      authentication: CLI
+      encrypt: true
+      trust_cert: true
+
+# Neden env_var?
+# Server URL'yi doğrudan yazmıyoruz — güvenlik için.
+# CI/CD'de GitHub Secrets olarak tanımlanır.
+# Yerel çalıştırmada .env dosyasına eklenir (gitignore'da).
