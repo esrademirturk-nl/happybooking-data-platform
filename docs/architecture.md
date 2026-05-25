@@ -17,8 +17,10 @@ solution built on Microsoft Fabric, implementing the Medallion Architecture
 │ booking_dirty   │ Docker Producer   │ Open-Meteo (Weather)  │
 │ .csv (Kaggle)   │ stream_producer   │ ExchangeRate (FX)     │
 └────────┬────────┴────────┬──────────┴──────────┬────────────┘
+```
 │                 │                      │
 ▼                 ▼                      ▼
+```
 ┌─────────────────────────────────────────────────────────────┐
 │              BRONZE LAYER (happybooking_bronze_lh)          │
 │                                                             │
@@ -30,8 +32,10 @@ solution built on Microsoft Fabric, implementing the Medallion Architecture
 │  ✓ Audit columns: ingestion_timestamp, source_file         │
 │  ✓ Delta format — versioned, ACID compliant                │
 └─────────────────────────┬───────────────────────────────────┘
+```
 │
 ▼ PySpark (04_silver_transformations)
+```
 ┌─────────────────────────────────────────────────────────────┐
 │              SILVER LAYER (happybooking_silver_lh)          │
 │                                                             │
@@ -43,8 +47,10 @@ solution built on Microsoft Fabric, implementing the Medallion Architecture
 │  ✓ Entities separated (Hotel, Customer, Booking, Review)   │
 │  ✓ Great Expectations quality validation                   │
 └─────────────────────────┬───────────────────────────────────┘
+```
 │
 ▼ DBT (dbt_project/)
+```
 ┌─────────────────────────────────────────────────────────────┐
 │              GOLD LAYER (happybooking_warehouse)            │
 │                                                             │
@@ -59,6 +65,7 @@ solution built on Microsoft Fabric, implementing the Medallion Architecture
 │  ✓ Pre-calculated KPIs and revenue metrics                 │
 │  ✓ DBT tests: unique, not_null, relationships              │
 └─────────────────────────┬───────────────────────────────────┘
+```
 │
 ▼
 ┌─────────────────────────────────────────────────────────────┐
@@ -91,25 +98,29 @@ solution built on Microsoft Fabric, implementing the Medallion Architecture
 
 ### Batch Flow
 booking_dirty.csv
+```
 → 01_bronze_batch_ingest.py    (Bronze: raw_bookings_batch)
 → 04_silver_transformations.py (Silver: 4 entity tables)
 → DBT staging models           (Gold: views)
 → DBT mart models              (Gold: fact + dim tables)
 → Power BI Dashboard
+```
 
 ### Streaming Flow
 hotel_raw_stream.csv
+```
 → Docker stream_producer.py    (sends events)
 → 02_bronze_stream_simulator.py(Bronze: bronze_stream_events)
 → 04_silver_transformations.py (Silver: merged with batch)
 → DBT models                   (Gold: included in fact_booking)
-
+```
 ### API Flow
 Open-Meteo API + ExchangeRate API
+```
 → 03_bronze_api_ingest.py      (Bronze: weather + currency)
 → Used in Silver enrichment
 → Available for Power BI analysis
-
+```
 ---
 
 ## Repository Structure
@@ -169,7 +180,9 @@ PR opened to main
 │  Job 2: GE Tests            │ → pytest tests/
 │  Job 3: Pytest              │ → unit tests
 └─────────────────────────────┘
+```
 ↓ (all pass)
+```
 Merge to main
 ↓
 ┌─────────────────────────────┐
