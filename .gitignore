@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+*.egg-info/
+dist/
+build/
+
+# Jupyter/Fabric Notebooks
+.ipynb_checkpoints/
+
+# Data files (büyük dosyalar repoya girmemeli)
+data/*.csv
+data/*.parquet
+data/*.json
+
+# DBT
+dbt_project/target/
+dbt_project/dbt_packages/
+dbt_project/logs/
+
+# Environment
+.env
+*.env.local
+
+# OS
+.DS_Store
+Thumbs.db
