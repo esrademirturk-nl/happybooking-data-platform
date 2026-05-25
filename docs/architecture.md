@@ -9,6 +9,7 @@ solution built on Microsoft Fabric, implementing the Medallion Architecture
 ---
 
 ## Architecture Diagram
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                     DATA SOURCES                            │
@@ -17,8 +18,8 @@ solution built on Microsoft Fabric, implementing the Medallion Architecture
 │ booking_dirty   │ Docker Producer   │ Open-Meteo (Weather)  │
 │ .csv (Kaggle)   │ stream_producer   │ ExchangeRate (FX)     │
 └────────┬────────┴────────┬──────────┴──────────┬────────────┘
-│                 │                      │
-▼                 ▼                      ▼
+         │                 │                      │
+         ▼                 ▼                      ▼
 ┌─────────────────────────────────────────────────────────────┐
 │              BRONZE LAYER (happybooking_bronze_lh)          │
 │                                                             │
@@ -30,9 +31,8 @@ solution built on Microsoft Fabric, implementing the Medallion Architecture
 │  ✓ Audit columns: ingestion_timestamp, source_file         │
 │  ✓ Delta format — versioned, ACID compliant                │
 └─────────────────────────┬───────────────────────────────────┘
-│
-▼ PySpark (04_silver_transformations)
-
+                          │
+                          ▼ PySpark (04_silver_transformations)
 ┌─────────────────────────────────────────────────────────────┐
 │              SILVER LAYER (happybooking_silver_lh)          │
 │                                                             │
@@ -44,8 +44,8 @@ solution built on Microsoft Fabric, implementing the Medallion Architecture
 │  ✓ Entities separated (Hotel, Customer, Booking, Review)   │
 │  ✓ Great Expectations quality validation                   │
 └─────────────────────────┬───────────────────────────────────┘
-│
-▼ DBT (dbt_project/)
+                          │
+                          ▼ DBT (dbt_project/)
 ┌─────────────────────────────────────────────────────────────┐
 │              GOLD LAYER (happybooking_warehouse)            │
 │                                                             │
@@ -60,8 +60,8 @@ solution built on Microsoft Fabric, implementing the Medallion Architecture
 │  ✓ Pre-calculated KPIs and revenue metrics                 │
 │  ✓ DBT tests: unique, not_null, relationships              │
 └─────────────────────────┬───────────────────────────────────┘
-│
-▼
+                          │
+                          ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                    POWER BI DASHBOARD                       │
 │                                                             │
@@ -70,6 +70,71 @@ solution built on Microsoft Fabric, implementing the Medallion Architecture
 │  🌍 City Analysis         ⭐ Review Analytics              │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## Data Flow
+
+### Batch Flow
+```
+booking_dirty.csv
+→ 01_bronze_batch_ingest.py     (Bronze: raw_bookings_batch)
+→ 04_silver_transformations.py  (Silver: 4 entity tables)
+→ DBT staging models            (Gold: views)
+→ DBT mart models               (Gold: fact + dim tables)
+→ Power BI Dashboard
+```
+
+### Streaming Flow
+```
+hotel_raw_stream.csv
+→ Docker stream_producer.py     (sends events)
+→ 02_bronze_stream_simulator.py (Bronze: bronze_stream_events)
+→ 04_silver_transformations.py  (Silver: merged with batch)
+→ DBT models                    (Gold: included in fact_booking)
+```
+
+### API Flow
+```
+Open-Meteo API + ExchangeRate API
+→ 03_bronze_api_ingest.py       (Bronze: weather + currency)
+→ Used in Silver enrichment
+→ Available for Power BI analysis
+```
+
+---
+
+## CI/CD Pipeline
+
+```
+PR opened to main
+         │
+         ▼
+┌────────────────────────────────┐
+│  Job 1: DBT Tests              │ → dbt test
+│  Job 2: Great Expectations     │ → pytest tests/
+│  Job 3: Pytest Unit Tests      │ → unit tests
+└────────────────────────────────┘
+         │ (all pass)
+         ▼
+   Merge to main
+         │
+         ▼
+┌────────────────────────────────┐
+│  Job 4: DBT Build Production   │ → dbt build --target prod
+└────────────────────────────────┘
+```
+
+---
+
+## Branch Strategy
+
+```
+main      → Production (merge only via PR)
+dev       → Development (active work branch)
+feature/* → Individual features
+```
+
 ---
 
 ## Tech Stack
@@ -88,51 +153,23 @@ solution built on Microsoft Fabric, implementing the Medallion Architecture
 
 ---
 
-## Data Flow
-
-### Batch Flow
-booking_dirty.csv
-```
-→ 01_bronze_batch_ingest.py    (Bronze: raw_bookings_batch)
-→ 04_silver_transformations.py (Silver: 4 entity tables)
-→ DBT staging models           (Gold: views)
-→ DBT mart models              (Gold: fact + dim tables)
-→ Power BI Dashboard
-```
-
-### Streaming Flow
-hotel_raw_stream.csv
-```
-→ Docker stream_producer.py    (sends events)
-→ 02_bronze_stream_simulator.py(Bronze: bronze_stream_events)
-→ 04_silver_transformations.py (Silver: merged with batch)
-→ DBT models                   (Gold: included in fact_booking)
-```
-### API Flow
-Open-Meteo API + ExchangeRate API
-```
-→ 03_bronze_api_ingest.py      (Bronze: weather + currency)
-→ Used in Silver enrichment
-→ Available for Power BI analysis
-```
----
-
 ## Repository Structure
+
 ```
 happybooking-data-platform/
-├── data/                          # Raw data files
+├── data/
 │   └── booking_dirty.csv
-├── docker/                        # Stream simulator
+├── docker/
 │   ├── Dockerfile
 │   ├── stream_producer.py
 │   └── requirements.txt
-├── notebooks/                     # Fabric PySpark notebooks
+├── notebooks/
 │   ├── 01_bronze_batch_ingest.py
 │   ├── 02_bronze_stream_simulator.py
 │   ├── 03_bronze_api_ingest.py
 │   ├── 04_silver_transformations.py
 │   └── 05_quality_checks_ge.py
-├── dbt_project/                   # DBT Gold models
+├── dbt_project/
 │   ├── models/
 │   │   ├── staging/
 │   │   │   ├── sources.yml
@@ -148,45 +185,20 @@ happybooking-data-platform/
 │   │       └── kpi_revenue.sql
 │   ├── dbt_project.yml
 │   └── profiles.yml
-├── tests/                         # Pytest unit tests
+├── tests/
 │   └── test_quality.py
 ├── .github/
 │   └── workflows/
-│       └── ci.yml                 # CI/CD pipeline
+│       └── ci.yml
 ├── docs/
 │   └── architecture.md
 └── README.md
 ```
----
 
-## Branch Strategy
-```
-main     → Production (merge only via PR)
-dev      → Development (active work branch)
-feature/ → Individual features
-```
-## CI/CD Pipeline
-```
-PR opened to main
-↓
-┌─────────────────────────────┐
-│  Job 1: DBT Tests           │ → dbt test
-│  Job 2: GE Tests            │ → pytest tests/
-│  Job 3: Pytest              │ → unit tests
-└─────────────────────────────┘
-```
-↓ (all pass)
-```
-Merge to main
-↓
-┌─────────────────────────────┐
-│  Job 4: DBT Build Prod      │ → dbt build --target prod
-└─────────────────────────────┘
-```
 ---
 
 ## Author
 
-**Esra Demirturk Duman**
-Data Engineer | Microsoft Fabric | Azure Data Engineering
+**Esra Demirturk Duman**  
+Data Engineer | Microsoft Fabric | Azure Data Engineering  
 Rotterdam, Netherlands
