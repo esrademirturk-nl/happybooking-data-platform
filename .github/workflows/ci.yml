@@ -1,0 +1,147 @@
+# ============================================================
+# ci.yml
+# Goal: CI/CD pipeline for HappyBooking Data Platform
+# Author: Esra Demirturk Duman
+# ============================================================
+
+# Neden CI/CD?
+# Her PR açıldığında otomatik testler çalışır.
+# Hatalı kod main'e merge edilmez.
+# Gerçek şirketlerde bu pipeline data quality'yi korur.
+
+name: HappyBooking CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - dev
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  # --------------------------------------------------
+  # Job 1: DBT Tests
+  # --------------------------------------------------
+  # Neden: Gold modellerin testlerini çalıştırır
+  # unique, not_null, relationships testleri burada koşar
+  dbt_tests:
+    name: DBT Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install DBT
+        run: |
+          pip install dbt-fabric==1.7.0
+          dbt --version
+
+      - name: DBT deps
+        working-directory: dbt_project
+        run: dbt deps
+
+      - name: DBT compile
+        working-directory: dbt_project
+        env:
+          FABRIC_SERVER: ${{ secrets.FABRIC_SERVER }}
+        run: dbt compile --target dev
+
+      - name: DBT test
+        working-directory: dbt_project
+        env:
+          FABRIC_SERVER: ${{ secrets.FABRIC_SERVER }}
+        run: dbt test --target dev
+
+  # --------------------------------------------------
+  # Job 2: Great Expectations Tests
+  # --------------------------------------------------
+  # Neden: Silver data quality testleri burada koşar
+  # Her PR'da Silver verinin hâlâ temiz olduğunu doğrular
+  great_expectations_tests:
+    name: Great Expectations Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install great-expectations==0.18.19
+          pip install pandas
+
+      - name: Run GE tests
+        run: |
+          python -m pytest tests/test_quality.py -v
+
+      - name: Upload GE report
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: ge-quality-report
+          path: ge_reports/
+
+  # --------------------------------------------------
+  # Job 3: Pytest
+  # --------------------------------------------------
+  # Neden: Python utility fonksiyonlarını test eder
+  pytest:
+    name: Pytest
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install pytest pandas pyspark==3.5.0
+
+      - name: Run tests
+        run: |
+          pytest tests/ -v --tb=short
+
+  # --------------------------------------------------
+  # Job 4: DBT Build (sadece main'e merge sonrası)
+  # --------------------------------------------------
+  # Neden: Production'a sadece test geçmiş kod deploy edilir
+  dbt_build_prod:
+    name: DBT Build Production
+    runs-on: ubuntu-latest
+    needs: [dbt_tests, great_expectations_tests, pytest]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install DBT
+        run: pip install dbt-fabric==1.7.0
+
+      - name: DBT build
+        working-directory: dbt_project
+        env:
+          FABRIC_SERVER: ${{ secrets.FABRIC_SERVER }}
+        run: dbt build --target prod
