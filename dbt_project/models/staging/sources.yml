@@ -1,0 +1,78 @@
+# ============================================================
+# sources.yml
+# Goal: Define Silver Lakehouse as DBT source
+# Author: Esra Demirturk Duman
+# ============================================================
+
+# Neden sources.yml?
+# DBT'ye "verini nereden okuyacağını" söylüyoruz.
+# {{ source('silver', 'silver_bookings') }} gibi referanslar
+# buradan çözümlenir.
+# Ayrıca source-level testler de buraya yazılır.
+
+version: 2
+
+sources:
+  - name: silver
+    database: happybooking_silver_lh
+    schema: dbo
+    description: "Silver Lakehouse — cleaned and normalized data"
+
+    tables:
+      - name: silver_bookings
+        description: "Cleaned booking transactions from Bronze"
+        columns:
+          - name: booking_id
+            description: "Unique booking identifier"
+            tests:
+              - unique
+              - not_null
+          - name: hotel_id
+            tests:
+              - not_null
+          - name: customer_id
+            tests:
+              - not_null
+          - name: checkin_date
+            tests:
+              - not_null
+          - name: total_price
+            tests:
+              - not_null
+
+      - name: silver_hotels
+        description: "Cleaned hotel master data"
+        columns:
+          - name: hotel_id
+            description: "Unique hotel identifier"
+            tests:
+              - unique
+              - not_null
+          - name: hotel_name
+            tests:
+              - not_null
+
+      - name: silver_customers
+        description: "Cleaned customer master data"
+        columns:
+          - name: customer_id
+            description: "Unique customer identifier"
+            tests:
+              - unique
+              - not_null
+          - name: email
+            tests:
+              - unique
+              - not_null
+
+      - name: silver_reviews
+        description: "Cleaned hotel reviews"
+        columns:
+          - name: review_id
+            description: "Unique review identifier"
+            tests:
+              - unique
+              - not_null
+          - name: review_rating
+            tests:
+              - not_null
