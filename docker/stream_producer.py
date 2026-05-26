@@ -19,18 +19,9 @@ from confluent_kafka import Producer
 # Bu sayede Docker direkt Fabric'e event gönderebilir
 # Araya ayrı bir Kafka kurulumuna gerek yok
 
-BOOTSTRAP_SERVER = os.getenv(
-    "BOOTSTRAP_SERVER",
-    "esehamvhft154evsbfktdj.servicebus.windows.net:9093"
-)
-TOPIC = os.getenv(
-    "TOPIC",
-    "esehamvhft154evsbfktdj_eh"
-)
-CONNECTION_STR = os.getenv(
-    "CONNECTION_STR",
-    "Endpoint=sb://esehamvhft154evsbfktdj.servicebus.windows.net/;SharedAccessKeyName=key_bc2498ec-2198-4b03-95fc-662045899cb2;SharedAccessKey=PrmOQCtkjUw68scZAdBqxNT1CjmdcwxLD+AEhHZ6cYw=;EntityPath=esehamvhft154evsbfktdj_eh"
-)
+BOOTSTRAP_SERVER = os.getenv("BOOTSTRAP_SERVER", "")
+TOPIC = os.getenv("TOPIC", "")
+CONNECTION_STR = os.getenv("CONNECTION_STR", "")
 STREAM_FILE = os.getenv("STREAM_FILE", "booking_dirty.csv")
 DELAY_SECONDS = float(os.getenv("DELAY_SECONDS", "0.1"))
 BATCH_SIZE = int(os.getenv("BATCH_SIZE", "10"))
