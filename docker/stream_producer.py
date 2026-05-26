@@ -1,140 +1,112 @@
 # ============================================================
 # stream_producer.py
-# Goal: Simulate real-time hotel booking events
-#       by sending CSV rows one-by-one to Fabric Eventstream
+# Goal: Send hotel booking events to Fabric Eventstream via Kafka
 # Author: Esra Demirturk Duman
 # ============================================================
-
-# Neden Docker + stream_producer?
-# Gerçek hayatta rezervasyon sistemleri anlık event gönderir.
-# Biz bunu simüle ediyoruz:
-# - CSV'den satır satır okuyoruz
-# - Her satırı JSON event olarak gönderiyoruz
-# - time.sleep ile gerçek zamanlı gibi davranıyoruz
 
 import csv
 import json
 import time
 import os
-import requests
 from datetime import datetime
+from confluent_kafka import Producer
 
 # --------------------------------------------------
-# 1. Configuration
+# 1. Kafka Configuration
 # --------------------------------------------------
-# Neden env_var: Hassas bilgileri kod içine yazmıyoruz
-# Docker run sırasında -e ile geçilir
+# Neden Kafka protokolü?
+# Fabric Eventstream Kafka protokolünü destekler
+# Bu sayede Docker direkt Fabric'e event gönderebilir
+# Araya ayrı bir Kafka kurulumuna gerek yok
 
-STREAM_FILE = os.getenv("STREAM_FILE", "hotel_raw_stream.csv")
-EVENTSTREAM_URL = os.getenv("EVENTSTREAM_URL", "")
-DELAY_SECONDS = float(os.getenv("DELAY_SECONDS", "0.5"))
-BATCH_SIZE = int(os.getenv("BATCH_SIZE", "1"))
+BOOTSTRAP_SERVER = os.getenv(
+    "BOOTSTRAP_SERVER",
+    "esehamvhft154evsbfktdj.servicebus.windows.net:9093"
+)
+TOPIC = os.getenv(
+    "TOPIC",
+    "esehamvhft154evsbfktdj_eh"
+)
+CONNECTION_STR = os.getenv(
+    "CONNECTION_STR",
+    "Endpoint=sb://esehamvhft154evsbfktdj.servicebus.windows.net/;SharedAccessKeyName=key_bc2498ec-2198-4b03-95fc-662045899cb2;SharedAccessKey=PrmOQCtkjUw68scZAdBqxNT1CjmdcwxLD+AEhHZ6cYw=;EntityPath=esehamvhft154evsbfktdj_eh"
+)
+STREAM_FILE = os.getenv("STREAM_FILE", "booking_dirty.csv")
+DELAY_SECONDS = float(os.getenv("DELAY_SECONDS", "0.1"))
+BATCH_SIZE = int(os.getenv("BATCH_SIZE", "10"))
+
+# Kafka producer config
+conf = {
+    "bootstrap.servers": BOOTSTRAP_SERVER,
+    "security.protocol": "SASL_SSL",
+    "sasl.mechanism": "PLAIN",
+    "sasl.username": "$ConnectionString",
+    "sasl.password": CONNECTION_STR,
+    "client.id": "happybooking-producer"
+}
+
+producer = Producer(conf)
 
 print("=" * 60)
 print("🚀 HappyBooking Stream Producer Starting...")
+print(f"   Server: {BOOTSTRAP_SERVER}")
+print(f"   Topic: {TOPIC}")
 print(f"   File: {STREAM_FILE}")
-print(f"   Delay: {DELAY_SECONDS}s between events")
-print(f"   Batch size: {BATCH_SIZE}")
+print(f"   Delay: {DELAY_SECONDS}s")
 print("=" * 60)
 
 # --------------------------------------------------
-# 2. Read CSV and send events
+# 2. Delivery callback
 # --------------------------------------------------
+def delivery_report(err, msg):
+    if err is not None:
+        print(f"❌ Delivery failed: {err}")
 
-def send_event(event: dict, url: str) -> bool:
-    """
-    Send a single event to Fabric Eventstream.
-    
-    Neden requests: Eventstream HTTP endpoint ile çalışır.
-    Her event JSON formatında POST edilir.
-    """
-    if not url:
-        # URL yoksa sadece print et (test modu)
-        print(f"[TEST MODE] Event: {json.dumps(event, default=str)[:100]}...")
-        return True
-    
-    try:
-        response = requests.post(
-            url,
-            json=event,
-            headers={"Content-Type": "application/json"},
-            timeout=10
-        )
-        return response.status_code == 200
-    except Exception as e:
-        print(f"❌ Error sending event: {e}")
-        return False
-
-
+# --------------------------------------------------
+# 3. Send events
+# --------------------------------------------------
 def process_stream():
-    """
-    Main streaming loop.
-    Reads CSV row by row, sends as JSON events.
-    """
     if not os.path.exists(STREAM_FILE):
-        print(f"❌ Stream file not found: {STREAM_FILE}")
+        print(f"❌ File not found: {STREAM_FILE}")
         return
 
     total_sent = 0
-    total_failed = 0
     start_time = datetime.now()
 
     with open(STREAM_FILE, "r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
-        
-        batch = []
-        
+
         for row_num, row in enumerate(reader, 1):
-            # Add streaming metadata
-            # Neden: Her event'in ne zaman geldiğini bilmek istiyoruz
             event = {
                 **row,
                 "event_id": f"EVT_{row_num:08d}",
                 "event_timestamp": datetime.now().isoformat(),
-                "stream_source": "docker_producer",
+                "stream_source": "docker_kafka_producer",
                 "sequence_number": row_num
             }
-            
-            batch.append(event)
-            
-            # Send batch
-            if len(batch) >= BATCH_SIZE:
-                for e in batch:
-                    success = send_event(e, EVENTSTREAM_URL)
-                    if success:
-                        total_sent += 1
-                    else:
-                        total_failed += 1
-                
-                batch = []
-                
-                # Progress report every 100 events
-                if row_num % 100 == 0:
-                    elapsed = (datetime.now() - start_time).seconds
-                    print(f"📊 Progress: {row_num} rows | "
-                          f"Sent: {total_sent} | "
-                          f"Failed: {total_failed} | "
-                          f"Elapsed: {elapsed}s")
-                
-                # Simulate real-time delay
-                # Neden: Gerçek streaming'de eventler anlık gelir
-                time.sleep(DELAY_SECONDS)
-        
-        # Send remaining events in batch
-        for e in batch:
-            success = send_event(e, EVENTSTREAM_URL)
-            if success:
-                total_sent += 1
-            else:
-                total_failed += 1
 
-    # Final summary
+            producer.produce(
+                topic=TOPIC,
+                value=json.dumps(event, default=str).encode("utf-8"),
+                callback=delivery_report
+            )
+
+            producer.poll(0)
+            total_sent += 1
+
+            if row_num % 100 == 0:
+                producer.flush()
+                elapsed = (datetime.now() - start_time).seconds
+                print(f"📊 Sent: {total_sent} events | Elapsed: {elapsed}s")
+
+            time.sleep(DELAY_SECONDS)
+
+    producer.flush()
     elapsed = (datetime.now() - start_time).seconds
     print("\n" + "=" * 60)
     print("✅ Stream Producer Complete!")
-    print(f"   Total sent:   {total_sent}")
-    print(f"   Total failed: {total_failed}")
-    print(f"   Total time:   {elapsed}s")
+    print(f"   Total sent: {total_sent}")
+    print(f"   Total time: {elapsed}s")
     print("=" * 60)
 
 
